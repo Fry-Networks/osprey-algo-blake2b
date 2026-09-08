@@ -81,8 +81,27 @@ fuser -v /dev/uio8 2>&1
 
 chmod +x /opt/blake2b/blake2b 2>/dev/null
 
-# The generated wrapper already ran the loader. Record the result rather than
-# repeating it: DONE is what proves the bitstream actually took.
+# --- what the vendor actually generated ---
+# setDracaenaMiner rewrites startblake2b.sh from its template every START, so
+# the only way to know what really ran is to publish the generated copy.
+cp /opt/blake2b/startblake2b.sh "$WEB/generated-start.sh" 2>/dev/null
+chmod 666 "$WEB/generated-start.sh" 2>/dev/null
+
+# The generated wrapper's loader line has NO output redirection (only the
+# ironfish_tari variant redirects to ~/loadbit_log.txt), so its output goes to
+# the unit's journal, which is invisible over HTTP. Pull it in.
+echo "=== journal for previous run (loader output lands here) ==="
+journalctl -u blake2b.service -n 400 --no-pager 2>&1 | tail -120
+
+# Run the loader again ourselves, capturing it this time. FPGA configuration is
+# volatile and idempotent -- the vendor reprograms on every start -- so a second
+# pass costs nothing and is the only way to see whether the bitstream actually
+# takes, which is the difference between "our RTL is wrong" and "our RTL never
+# got loaded".
+echo "=== loader (captured) ==="
+/opt/blake2b/loadallblake2b 2>&1
+echo "loader exit=$?"
+
 echo "=== post-loader state ==="
 cat ~/loadbit_log.txt 2>/dev/null | tail -40
 dmesg 2>/dev/null | tail -20
@@ -96,9 +115,17 @@ echo "=== selftest uart ==="
 /opt/blake2b/blake2b --uart /dev/uio8 --selftest uart --status "$WEB/status.json" --log "$WEB/miner.log"
 echo "uart exit=$?"
 
-echo "=== selftest loopback ==="
-/opt/blake2b/blake2b --uart /dev/uio8 --selftest loopback --status "$WEB/status.json" --log "$WEB/miner.log"
-echo "loopback exit=$?"
+# The loopback selftest walks up to 168 byte phases at ~3s each -- 8.4 minutes --
+# and with Restart=always a failing board just loops on it forever, which starves
+# every other diagnostic. It only pays for itself once the FPGA is answering at
+# all, so it is gated behind a marker file rather than run unconditionally.
+if [ -f /opt/blake2b/ENABLE_LOOPBACK ]; then
+    echo "=== selftest loopback ==="
+    /opt/blake2b/blake2b --uart /dev/uio8 --selftest loopback --status "$WEB/status.json" --log "$WEB/miner.log"
+    echo "loopback exit=$?"
+else
+    echo "=== selftest loopback SKIPPED (no /opt/blake2b/ENABLE_LOOPBACK) ==="
+fi
 
 chmod 666 "$WEB"/* 2>/dev/null
 
@@ -116,6 +143,12 @@ chmod 666 "$WEB"/* 2>/dev/null
 # turns on once the RTL prefilter is fixed and the part resynthesized, at which
 # point setting the pool field to host:port takes this branch instead.
 echo "=== miner ==="
+# setDracaenaMiner silently rejects a START whose pool or wallet field is empty
+# -- it returns an empty body instead of {"result":"SUCCESS"} -- so "no pool" has
+# to be spelled with a sentinel rather than left blank.
+case "$POOL" in
+    synthetic|none|-|'') POOL= ;;
+esac
 if [ -n "$POOL" ]; then
     RPC_HOST=${POOL%%:*}
     RPC_PORT=${POOL##*:}
