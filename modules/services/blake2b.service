@@ -1,0 +1,15 @@
+[Unit]
+Description=Osprey BLAKE2b Miner (Bitcoin Knots)
+After=network-online.target apache2.service
+
+[Service]
+Type=simple
+ExecStart=/opt/blake2b/startblake2b.sh
+Restart=on-failure
+RestartSec=15
+# Bring-up target inflation. The FPGA prefilter is a 64-bit compare; raising this
+# makes candidates frequent enough to measure a rate in minutes rather than never.
+Environment=BLAKE2B_TARGET_SHIFT=64
+
+[Install]
+WantedBy=multi-user.target
