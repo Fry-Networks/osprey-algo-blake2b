@@ -1,0 +1,9 @@
+# Never translate line endings, in either direction.
+#
+# The device clones this repo and executes update.sh, run.sh and
+# startblake2b.sh directly. A CRLF checkout would put a \r on the end of the
+# shebang, and the kernel would fail the exec with a "bad interpreter" error
+# naming a path that looks completely correct. There is no SSH to this device,
+# so that failure would be close to undiagnosable. The device's git config is
+# not ours to control, hence pinning it here rather than relying on the default.
+* -text
