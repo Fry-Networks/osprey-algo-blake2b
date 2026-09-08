@@ -80,6 +80,13 @@ sudo chmod 777 "$WEB"
 # recursive modules copy above; the real ones are in /etc/systemd/system.
 sudo rm -rf /opt/services 2>/dev/null
 
+# cp -R only adds, so the CIV-named bitstream from the earlier wrong-device build
+# survives every deploy: 22MB the loader will never open on this board, since it
+# derives the filename from the IDCODE and this one reads as plain VU35P.
+# Removed by name rather than by wildcard so a bitstream for some other board
+# could not be swept up by accident.
+sudo rm -f /opt/blake2b/bits/e335c_v3.bit /opt/blake2b/bits/e335c_v3.bit.md5sum 2>/dev/null
+
 if [ ${#2} -ge 5 ]; then
     sudo mkdir -p /opt/algorithm
     echo "$2" | sudo tee /opt/algorithm/algorithm_version.txt
