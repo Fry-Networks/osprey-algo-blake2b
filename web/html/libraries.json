@@ -1,0 +1,26 @@
+{
+    "dev_fees": {
+        "os": {
+            "blake2b": {"fee": 0, "developers": ["Osprey"], "useHBM" : 0, "useKey": 0,"run_command":"sudo /opt/blake2b/run.sh --pool=%s --wallet=%s --worker=%s --clk=%s" , "run_args":[3,4,5,6]},
+            "pyrin": {"fee": 10, "developers": ["Osprey"], "useHBM" : 0, "useKey": 0},
+            "ironfish": {"fee": 0, "developers": ["Osprey"], "useHBM" : 1, "useKey": 0,"run_command":"sudo /opt/ironfish/ironfish -o %s -u %s.%s --max-temp=85 -t %s,%s,%s  -p 4 --queue_size=115 --clock_axi=%s --clock_hbm=120" , "run_args":[3,4,5,6,7,8,9]},
+            "astrix": {"fee": 0, "developers": ["Osprey"], "useHBM" : 0, "useKey": 0},
+            "wala": {"fee": 10, "developers": ["Osprey"], "useHBM" : 0, "useKey": 0},
+	        "tari_os": {"fee": 10, "developers": ["Osprey"], "useHBM" : 0, "useKey": 0},
+            "hoohash": {"fee": 10, "developers": ["Osprey"], "useHBM" : 0, "useKey": 0},
+            "ironfish_tari_os": {"fee": 0,"developers": ["Osprey"],"useHBM": 1,"dual":1,"useKey": 0,"run_command": "sudo /opt/ironfish_tari_os/tari_jtag_dual > /dev/null 2>&1 & sudo /opt/ironfish_tari_os/ironfish_tari_os -o %s\\;%s -u %s.%s\\;%s.%s --max-temp=85 -t %s,%s,%s\\;%s,%s,%s -p 4 --queue_size=70 --clock_axi=%s --clock_hbm=110","run_args": [3, 19, 4, 5, 20, 21, 6, 7, 8, 22, 23, 24, 9]},
+            "vecno_os": {"fee": 10, "developers": ["Osprey"], "useHBM" : 0, "useKey": 0}
+        },
+        "trm": {
+            "alephium_trm": {"fee": 10, "developers": ["Teamredminer"], "useHBM" : 0, "useKey": 0, "run_command":"sudo /opt/alephium_trm/alephium_trm  -a alph -o %s  -u %s.%s  -p x --fpga_e300 --fpga_clk_core=%s,%s,%s" , "run_args":[3,4,5,6,7,8]}
+        },
+        "wf": {
+            "radiant": {"fee": 15, "developers": ["WhiteFire"], "useHBM" : 0, "useKey": 0},
+            "alephium_wf": {"fee": 10, "developers": ["WhiteFire"], "useHBM" : 0, "useKey": 0}
+        }
+	,
+        "aft": {
+            "tari_aft": {"fee": 10, "developers": ["The AllFather"], "useHBM" : 0, "useKey": 0, "run_command":"sudo /opt/tari_aft/tari_aft   --p %s  --u %s --worker %s --e300 --f %s" , "run_args":[3,4,5,6]}
+        }
+    }
+}

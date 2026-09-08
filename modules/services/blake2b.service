@@ -5,7 +5,11 @@ After=network-online.target apache2.service
 [Service]
 Type=simple
 ExecStart=/opt/blake2b/startblake2b.sh
-Restart=on-failure
+# Restart=always, not on-failure: the vendor-generated startblake2b.sh exits 0
+# without starting anything when /proc/uptime is under 60s (it takes an
+# `else sleep 40; fi` branch), so on-failure would leave the miner dead after a
+# reboot. Always-restart retries until the uptime gate opens.
+Restart=always
 RestartSec=15
 # Bring-up target inflation. The FPGA prefilter is a 64-bit compare; raising this
 # makes candidates frequent enough to measure a rate in minutes rather than never.
