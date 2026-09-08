@@ -128,17 +128,14 @@ echo "=== selftest rxdump ==="
 /opt/blake2b/blake2b --uart /dev/uio8 --selftest rxdump --status "$WEB/status.json" --log "$WEB/miner.log"
 echo "rxdump exit=$?"
 
-# The loopback selftest walks up to 168 byte phases at ~3s each -- 8.4 minutes --
-# and with Restart=always a failing board just loops on it forever, which starves
-# every other diagnostic. It only pays for itself once the FPGA is answering at
-# all, so it is gated behind a marker file rather than run unconditionally.
-if [ -f /opt/blake2b/ENABLE_LOOPBACK ]; then
-    echo "=== selftest loopback ==="
-    /opt/blake2b/blake2b --uart /dev/uio8 --selftest loopback --status "$WEB/status.json" --log "$WEB/miner.log"
-    echo "loopback exit=$?"
-else
-    echo "=== selftest loopback SKIPPED (no /opt/blake2b/ENABLE_LOOPBACK) ==="
-fi
+# Loopback runs unconditionally again. It used to walk up to 168 byte phases at
+# ~3s each -- 8.4 minutes to fail, on a Restart=always loop -- which is why it
+# was gated behind a marker file. It now frames on the 17-byte period in one
+# pass and is bounded at about 8 seconds, and it is the only check that proves
+# the datapath end to end: it recomputes the FPGA's reported hash in software.
+echo "=== selftest loopback ==="
+/opt/blake2b/blake2b --uart /dev/uio8 --selftest loopback --status "$WEB/status.json" --log "$WEB/miner.log"
+echo "loopback exit=$?"
 
 chmod 666 "$WEB"/* 2>/dev/null
 
