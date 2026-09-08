@@ -121,6 +121,13 @@ echo "=== selftest uart ==="
 /opt/blake2b/blake2b --uart /dev/uio8 --selftest uart --status "$WEB/status.json" --log "$WEB/miner.log"
 echo "uart exit=$?"
 
+# Raw RX dump. Cheap (5s) and it is the only thing that distinguishes "the FPGA
+# is emitting well-formed frames we are reading at the wrong offset" from "the
+# bytes on the wire are garbage", which need completely different fixes.
+echo "=== selftest rxdump ==="
+/opt/blake2b/blake2b --uart /dev/uio8 --selftest rxdump --status "$WEB/status.json" --log "$WEB/miner.log"
+echo "rxdump exit=$?"
+
 # The loopback selftest walks up to 168 byte phases at ~3s each -- 8.4 minutes --
 # and with Restart=always a failing board just loops on it forever, which starves
 # every other diagnostic. It only pays for itself once the FPGA is answering at
