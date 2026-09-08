@@ -152,8 +152,22 @@ echo "=== miner ==="
 # setDracaenaMiner silently rejects a START whose pool or wallet field is empty
 # -- it returns an empty body instead of {"result":"SUCCESS"} -- so "no pool" has
 # to be spelled with a sentinel rather than left blank.
+#
+# "synthetic:N" also sets the target shift, which is worth being able to change
+# from the web form because getting it wrong is not a subtle failure. The
+# prefilter is a 64-bit compare, so the candidate rate is
+# 250e6 * TargetTop64 / 2^64 per second, while the UART carries at most
+# 115200/10/17 = 677 frames/s. The first bring-up ran at shift 64, which makes
+# almost every nonce a candidate: the FPGA transmitted flat out at 10.3 kB/s
+# (89% of line rate), the result stream never stopped long enough for the reader
+# to find a frame boundary, and it logged overruns with frames_ok stuck at 0.
+# Raising the shift makes the target EASIER, so bring-up needs a LOWER one than
+# the real 22, not a higher one. 16 lands around a few tens of frames a second --
+# fast enough to measure in seconds, a few percent of the link.
+SHIFT=16
 case "$POOL" in
-    synthetic|none|-|'') POOL= ;;
+    synthetic:*) SHIFT=${POOL#synthetic:}; POOL= ;;
+    synthetic|none|-|'')                   POOL= ;;
 esac
 if [ -n "$POOL" ]; then
     RPC_HOST=${POOL%%:*}
@@ -169,7 +183,7 @@ else
     exec /opt/blake2b/blake2b \
         --uart /dev/uio8 \
         --synthetic-work \
-        --target-shift "${BLAKE2B_TARGET_SHIFT:-64}" \
+        --target-shift "$SHIFT" \
         --status "$WEB/status.json" \
         --log "$WEB/miner.log"
 fi
