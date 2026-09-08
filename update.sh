@@ -87,6 +87,15 @@ fi
 
 sudo systemctl daemon-reload
 
+# The long-running `webserver` process behind the CGI parses
+# /var/www/html/libraries.json ONCE at startup into its g_minerListInfo global.
+# Until it is restarted it keeps the old list, and setDracaenaMiner answers a
+# START with an empty body -- its "Error: Miner not found: blake2b" path -- no
+# matter how correct the file on disk is. The vendor's update.sh stops and kills
+# webserver for exactly this reason; this is the minimal equivalent.
+sudo systemctl restart webserver.service
+sleep 3
+
 # --- prove what landed, since this log is the only way to see it ---
 echo "=== installed ==="
 ls -l /opt/blake2b/ /opt/blake2b/bits/
