@@ -57,9 +57,15 @@ uname -a
 cat /proc/device-tree/model 2>/dev/null; echo
 
 # --- what actually landed on the device ---
+# The filename is not cosmetic. The loader reads the JTAG IDCODE and derives the
+# path from it: 4b71093 (plain VU35P, this board) -> bits/e335_v3.bit, whereas
+# 4b77093 (VU35P_CIV) -> bits/e335c_v3.bit. Ship it under the wrong one and the
+# loader never looks at it, falls through to wget-ing the vendor zip, and -- since
+# that wget fails cert verification on this Ubuntu 16.04 image -- leaves the FPGA
+# unprogrammed and silent.
 ls -l /opt/blake2b/ /opt/blake2b/bits/ 2>&1
-md5sum /opt/blake2b/bits/e335c_v3.bit 2>&1
-cat /opt/blake2b/bits/e335c_v3.bit.md5sum 2>&1
+md5sum /opt/blake2b/bits/e335_v3.bit 2>&1
+cat /opt/blake2b/bits/e335_v3.bit.md5sum 2>&1
 
 # --- the UIO devices we depend on ---
 # uio8 is the AXI UartLite for FPGA board 0 (serial@42c00000, bound
