@@ -180,13 +180,45 @@ case "$POOL" in
     synthetic|none|-|'')                   POOL= ;;
 esac
 if [ -n "$POOL" ]; then
+    # Real getblocktemplate mining.
+    #   pool   = host:port of the Knots RPC (must be a NUMERIC IPv4 -- the miner
+    #            uses inet_pton, not getaddrinfo, because a -static glibc build
+    #            cannot do NSS lookups against the device's older runtime)
+    #   wallet = rpcuser:rpcpassword
+    #   worker = "shift<N>" to inflate the target for a measurable bring-up run;
+    #            anything else leaves the miner on the mainnet default of 22
+    #
+    # The credential deliberately arrives through the vendor form rather than the
+    # repo: this repo is PUBLIC, so no secret may ever be committed to it. The
+    # cost is that the vendor's getDracaMinerStatus endpoint echoes the config
+    # back over unauthenticated HTTP on the LAN, which is exactly why the account
+    # it carries is whitelisted to getblocktemplate and nothing else.
+    # set +x BEFORE touching WALLET. xtrace prints assignments with the value
+    # already expanded, so `RPC_PASS=${WALLET#*:}` would print the password
+    # verbatim -- and everything traced here lands in boot.log, which is served
+    # over HTTP. Tracing must be off for the whole credential-handling section,
+    # not merely for the exec line.
+    set +x
+
     RPC_HOST=${POOL%%:*}
     RPC_PORT=${POOL##*:}
     [ "$RPC_PORT" = "$POOL" ] && RPC_PORT=8332
+    RPC_USER=${WALLET%%:*}
+    RPC_PASS=${WALLET#*:}
+
+    case "$WORKER" in
+        shift[0-9]*) SHIFT_ARG="--target-shift ${WORKER#shift}" ;;
+        *)           SHIFT_ARG= ;;
+    esac
+
+    echo "gbt mode: rpc=$RPC_HOST:$RPC_PORT user=$RPC_USER shift_arg=[$SHIFT_ARG]"
     exec /opt/blake2b/blake2b \
         --uart /dev/uio8 \
         --rpc-host "$RPC_HOST" \
         --rpc-port "$RPC_PORT" \
+        --rpc-user "$RPC_USER" \
+        --rpc-pass "$RPC_PASS" \
+        $SHIFT_ARG \
         --status "$WEB/status.json" \
         --log "$WEB/miner.log"
 else
