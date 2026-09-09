@@ -98,12 +98,16 @@ chmod +x /opt/blake2b/blake2b 2>/dev/null
 # --- what the vendor actually generated ---
 # setDracaenaMiner rewrites startblake2b.sh from its template every START, so
 # the only way to know what really ran is to publish the generated copy.
-# REDACTED copy. The generated script embeds the full run_command, which carries
-# --wallet=<user>:<password>, and this destination is served over HTTP without
-# authentication. Publishing it verbatim turned a credential the vendor already
-# exposes via getDracaMinerStatus into a second, needless disclosure.
-sed -E 's/--wallet=[^ ]*/--wallet=<REDACTED>/g' /opt/blake2b/startblake2b.sh \
-    > "$WEB/generated-start.sh" 2>/dev/null
+# REDACTED copy. The generated script carries the credential TWICE and in two
+# different shapes, which is why the first attempt at this still leaked:
+#   1. the run_command line, as --wallet=<user>:<password>
+#   2. the trailing #{...} config comment, as "u":"<user>:<password>"
+# Only the first was redacted initially. Both are handled here. Note "u1" must
+# not be caught by the second pattern, hence the exact "u": prefix.
+# This destination is served over HTTP with no authentication.
+redact() { sed -E -e 's/--wallet=[^ ]*/--wallet=<REDACTED>/g' -e 's/"u":"[^"]*"/"u":"<REDACTED>"/g'; }
+
+redact < /opt/blake2b/startblake2b.sh > "$WEB/generated-start.sh" 2>/dev/null
 chmod 666 "$WEB/generated-start.sh" 2>/dev/null
 
 # The generated wrapper's loader line has NO output redirection (only the
@@ -112,8 +116,7 @@ chmod 666 "$WEB/generated-start.sh" 2>/dev/null
 echo "=== journal for previous run (loader output lands here) ==="
 # Same redaction: the journal contains sudo's record of the full run.sh command
 # line, credential included, and this output lands in the web-served boot.log.
-journalctl -u blake2b.service -n 400 --no-pager 2>&1 \
-    | sed -E 's/--wallet=[^ ]*/--wallet=<REDACTED>/g' | tail -120
+journalctl -u blake2b.service -n 400 --no-pager 2>&1 | redact | tail -120
 
 # Run the loader again ourselves, capturing it this time. FPGA configuration is
 # volatile and idempotent -- the vendor reprograms on every start -- so a second
