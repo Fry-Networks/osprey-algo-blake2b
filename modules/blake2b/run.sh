@@ -158,17 +158,23 @@ echo "=== miner ==="
 # to be spelled with a sentinel rather than left blank.
 #
 # "synthetic:N" also sets the target shift, which is worth being able to change
-# from the web form because getting it wrong is not a subtle failure. The
-# prefilter is a 64-bit compare, so the candidate rate is
-# 250e6 * TargetTop64 / 2^64 per second, while the UART carries at most
-# 115200/10/17 = 677 frames/s. The first bring-up ran at shift 64, which makes
-# almost every nonce a candidate: the FPGA transmitted flat out at 10.3 kB/s
-# (89% of line rate), the result stream never stopped long enough for the reader
-# to find a frame boundary, and it logged overruns with frames_ok stuck at 0.
-# Raising the shift makes the target EASIER, so bring-up needs a LOWER one than
-# the real 22, not a higher one. 16 lands around a few tens of frames a second --
-# fast enough to measure in seconds, a few percent of the link.
-SHIFT=16
+# from the web form because getting it wrong is not a subtle failure.
+#
+# At the real mainnet shift of 22, TargetTop64 for nBits 0x1903c2d4 is
+# 0x00f0b500, about 1.6e7, so the prefilter passes roughly 8.6e-13 of hashes:
+# one candidate per ~78 minutes at 250 MHz. That is simply normal difficulty for
+# one chip, and it is far too rare to measure a bring-up rate against.
+#
+# Each +1 of shift doubles the target. 40 gives TargetTop64 ~2^41.9, about one
+# hash in 4.4 million, which measured out at ~50 verified candidates/s -- prompt,
+# and only a few percent of the 677 frame/s the link can carry.
+#
+# Both earlier guesses were wrong in instructive ways. 64 makes nearly every
+# nonce a candidate: the part transmitted flat out at 89% of line rate with no
+# gap to frame on. 16 is HARDER than mainnet and produced nothing at all. The
+# value only became computable once the target was actually being read, since
+# before that no shift changed anything.
+SHIFT=40
 case "$POOL" in
     synthetic:*) SHIFT=${POOL#synthetic:}; POOL= ;;
     synthetic|none|-|'')                   POOL= ;;
