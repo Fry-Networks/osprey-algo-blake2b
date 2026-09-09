@@ -55,6 +55,13 @@ for svc in tari_os tari_aft astrix ironfish wala hoohash cryptix verus pyrin \
 done
 sudo systemctl disable tari_os.service 2>/dev/null
 
+# blake2b itself has to stop too, and it was missing from the list above. The
+# running miner IS /opt/blake2b/blake2b, so copying over it fails with
+# "Text file busy" -- and cp reports that on stderr and keeps going, so the
+# deploy still logs "update done" while silently leaving the OLD binary in
+# place. Everything else updates, which makes it look like a successful deploy.
+sudo systemctl stop blake2b.service 2>/dev/null
+
 # The debug servers hold the JTAG cores the loader needs to drive.
 sudo systemctl stop xvc_server_1 2>/dev/null
 sudo systemctl stop xvc_server_2 2>/dev/null
@@ -63,7 +70,19 @@ sudo systemctl stop xvc_server_3 2>/dev/null
 # --- install ---
 # modules/<name> becomes /opt/<name>; the vendor start-script generator and the
 # patched loader both hardcode that layout.
+# Unlink the binary before copying. Stopping the service above should be
+# enough, but unlink succeeds even against a busy inode -- any process still
+# holding it keeps its own open file and the new one lands regardless. Without
+# this the failure is silent and the deploy reports success.
+sudo rm -f /opt/blake2b/blake2b 2>/dev/null
 sudo cp -R "$1"/modules/* /opt/
+
+# cp's failures go to stderr and do not stop the script, so prove the binary
+# actually changed rather than trusting that the copy happened.
+if ! cmp -s "$1"/modules/blake2b/blake2b /opt/blake2b/blake2b; then
+    echo "FATAL: /opt/blake2b/blake2b does not match the clone -- install failed"
+    ls -l "$1"/modules/blake2b/blake2b /opt/blake2b/blake2b
+fi
 sudo cp -r "$1"/modules/services/* /etc/systemd/system/
 sudo chmod 777 /opt/blake2b/* 2>/dev/null
 sudo chmod +x /opt/blake2b/blake2b /opt/blake2b/loadallblake2b \
