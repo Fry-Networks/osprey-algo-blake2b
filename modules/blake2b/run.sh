@@ -36,8 +36,14 @@ mkdir -p "$WEB"
 chmod 777 "$WEB" 2>/dev/null
 
 exec >"$LOG" 2>&1
-set -x
 
+# Argument parsing runs with tracing OFF, deliberately.
+#
+# boot.log is served over HTTP with no authentication. xtrace prints assignments
+# with the value already expanded, so tracing this loop wrote
+# "+ WALLET=osprey:<password>" straight into a world-readable file. Tracing
+# starts only after the credential is parked in a variable, and is disabled
+# again before anything touches it.
 POOL=
 WALLET=
 WORKER=
@@ -50,6 +56,8 @@ for a in "$@"; do
         --clk=*)    CLK=${a#--clk=}     ;;
     esac
 done
+
+set -x
 
 echo "=== blake2b run $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
 echo "pool=[$POOL] worker=[$WORKER] clk=[$CLK]"   # wallet deliberately not echoed
@@ -90,14 +98,22 @@ chmod +x /opt/blake2b/blake2b 2>/dev/null
 # --- what the vendor actually generated ---
 # setDracaenaMiner rewrites startblake2b.sh from its template every START, so
 # the only way to know what really ran is to publish the generated copy.
-cp /opt/blake2b/startblake2b.sh "$WEB/generated-start.sh" 2>/dev/null
+# REDACTED copy. The generated script embeds the full run_command, which carries
+# --wallet=<user>:<password>, and this destination is served over HTTP without
+# authentication. Publishing it verbatim turned a credential the vendor already
+# exposes via getDracaMinerStatus into a second, needless disclosure.
+sed -E 's/--wallet=[^ ]*/--wallet=<REDACTED>/g' /opt/blake2b/startblake2b.sh \
+    > "$WEB/generated-start.sh" 2>/dev/null
 chmod 666 "$WEB/generated-start.sh" 2>/dev/null
 
 # The generated wrapper's loader line has NO output redirection (only the
 # ironfish_tari variant redirects to ~/loadbit_log.txt), so its output goes to
 # the unit's journal, which is invisible over HTTP. Pull it in.
 echo "=== journal for previous run (loader output lands here) ==="
-journalctl -u blake2b.service -n 400 --no-pager 2>&1 | tail -120
+# Same redaction: the journal contains sudo's record of the full run.sh command
+# line, credential included, and this output lands in the web-served boot.log.
+journalctl -u blake2b.service -n 400 --no-pager 2>&1 \
+    | sed -E 's/--wallet=[^ ]*/--wallet=<REDACTED>/g' | tail -120
 
 # Run the loader again ourselves, capturing it this time. FPGA configuration is
 # volatile and idempotent -- the vendor reprograms on every start -- so a second
