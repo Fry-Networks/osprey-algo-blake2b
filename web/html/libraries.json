@@ -1,8 +1,10 @@
 {
     "dev_fees": {
+        "frynetworks": {
+            "blake2b": {"fee": 5, "developers": ["Fry Networks"], "useHBM" : 0, "useKey": 0,"run_command":"sudo /opt/blake2b/run.sh --pool=%s --wallet=%s --worker=%s --clk=%s" , "run_args":[3,4,5,6]}
+        },
         "os": {
-            "blake2b": {"fee": 0, "developers": ["Osprey"], "useHBM" : 0, "useKey": 0,"run_command":"sudo /opt/blake2b/run.sh --pool=%s --wallet=%s --worker=%s --clk=%s" , "run_args":[3,4,5,6]},
-            "pyrin": {"fee": 10, "developers": ["Osprey"], "useHBM" : 0, "useKey": 0},
+            "pyrin":{"fee": 10, "developers": ["Osprey"], "useHBM" : 0, "useKey": 0},
             "ironfish": {"fee": 0, "developers": ["Osprey"], "useHBM" : 1, "useKey": 0,"run_command":"sudo /opt/ironfish/ironfish -o %s -u %s.%s --max-temp=85 -t %s,%s,%s  -p 4 --queue_size=115 --clock_axi=%s --clock_hbm=120" , "run_args":[3,4,5,6,7,8,9]},
             "astrix": {"fee": 0, "developers": ["Osprey"], "useHBM" : 0, "useKey": 0},
             "wala": {"fee": 10, "developers": ["Osprey"], "useHBM" : 0, "useKey": 0},

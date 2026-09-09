@@ -106,8 +106,11 @@ sleep 3
 # --- prove what landed, since this log is the only way to see it ---
 echo "=== installed ==="
 ls -l /opt/blake2b/ /opt/blake2b/bits/
-md5sum /opt/blake2b/bits/e335c_v3.bit
-cat /opt/blake2b/bits/e335c_v3.bit.md5sum
+# e335_v3.bit, not e335c_v3.bit: this board's IDCODE reads as a plain VU35P, so
+# that is the name the loader derives and the only bitstream we ship. The CIV
+# name is deleted above, so checking it here proved nothing at all.
+md5sum /opt/blake2b/bits/e335_v3.bit
+cat /opt/blake2b/bits/e335_v3.bit.md5sum
 file /opt/blake2b/blake2b 2>/dev/null
 grep -c blake2b /var/www/html/libraries.json
 systemctl cat blake2b.service 2>&1 | head -20

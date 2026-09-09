@@ -48,12 +48,18 @@ POOL=
 WALLET=
 WORKER=
 CLK=
+# Block rewards land here. The vendor UI has no field for a payout address, so
+# it is a constant rather than an argument; the miner validates the bech32
+# checksum before it will build a coinbase, because a typo here burns the
+# reward rather than failing loudly.
+PAYOUT_ADDRESS=bc1qztsz84mn408vfklya05sgf8v4j2wtfrscszene
 for a in "$@"; do
     case "$a" in
         --pool=*)   POOL=${a#--pool=}   ;;
         --wallet=*) WALLET=${a#--wallet=} ;;
         --worker=*) WORKER=${a#--worker=} ;;
         --clk=*)    CLK=${a#--clk=}     ;;
+        --payout=*) PAYOUT_ADDRESS=${a#--payout=} ;;
     esac
 done
 
@@ -231,12 +237,20 @@ if [ -n "$POOL" ]; then
     esac
 
     echo "gbt mode: rpc=$RPC_HOST:$RPC_PORT user=$RPC_USER shift_arg=[$SHIFT_ARG]"
+
+    # Hand the password over the environment, not argv. /proc/<pid>/cmdline is
+    # world-readable and this box serves an unauthenticated status surface, so
+    # --rpc-pass would publish the RPC password to anyone who can run ps.
+    export OSPREY_RPC_PASS="$RPC_PASS"
+    unset RPC_PASS WALLET
     exec /opt/blake2b/blake2b \
         --uart /dev/uio8 \
         --rpc-host "$RPC_HOST" \
         --rpc-port "$RPC_PORT" \
         --rpc-user "$RPC_USER" \
-        --rpc-pass "$RPC_PASS" \
+        --rpc-pass-env OSPREY_RPC_PASS \
+        --payout-address "$PAYOUT_ADDRESS" \
+        --submit \
         $SHIFT_ARG \
         --status "$WEB/status.json" \
         --log "$WEB/miner.log"
