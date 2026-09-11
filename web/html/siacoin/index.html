@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<!-- Status page for the BLAKE2b miner.
+     The device has no SSH, so this and boot.log are the whole debugging surface. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Osprey Siacoin</title>
+<style>
+  body { font: 14px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace;
+         background: #11151a; color: #d6dde6; margin: 0; padding: 24px; }
+  h1 { font-size: 18px; margin: 0 0 4px; color: #7fd1e8; }
+  .sub { color: #7d8a99; margin-bottom: 20px; }
+  table { border-collapse: collapse; margin-bottom: 24px; }
+  td { padding: 3px 18px 3px 0; vertical-align: top; }
+  td.k { color: #7d8a99; }
+  .ok { color: #6fcf7f; } .bad { color: #e8746a; } .wait { color: #d8c05a; }
+  pre { background: #0b0e12; border: 1px solid #232b34; padding: 12px;
+        overflow-x: auto; white-space: pre-wrap; max-height: 420px; }
+  a { color: #7fd1e8; }
+</style>
+</head>
+<body>
+<h1>Osprey Siacoin miner</h1>
+<div class="sub">
+  raw: <a href="status.json">status.json</a> &middot;
+  <a href="boot.log">boot.log</a> &middot;
+  <a href="miner.log">miner.log</a>
+</div>
+<table id="t"></table>
+<h1>status.json</h1>
+<pre id="raw">loading…</pre>
+
+<script>
+function verdict(v) {
+  if (v === 0)  return '<span class="ok">pass</span>';
+  if (v === -1) return '<span class="wait">not run</span>';
+  return '<span class="bad">FAIL</span>';
+}
+function row(k, v) { return '<tr><td class="k">' + k + '</td><td>' + v + '</td></tr>'; }
+
+async function tick() {
+  try {
+    const s = await (await fetch('status.json?_=' + Date.now())).json();
+    const u = s.uart || {};
+    document.getElementById('t').innerHTML =
+        row('phase', s.phase)
+      + row('uptime', s.uptime_s + ' s')
+      + row('uart dev', s.uart_dev)
+      + row('selftest vectors', verdict(s.selftest.vectors))
+      + row('selftest uart', verdict(s.selftest.uart))
+      + row('selftest loopback', verdict(s.selftest.loopback))
+      + row('nonce offset', s.nonce_offset)
+      + row('target shift', s.target_shift)
+      + row('items sent', s.items_sent)
+      + row('frames ok / bad', s.frames_ok + ' / ' + s.frames_bad)
+      + row('candidates verified',
+            '<span class="' + (s.candidates_verified > 0 ? 'ok' : 'wait') + '">'
+            + s.candidates_verified + '</span>')
+      + row('uart rx / tx', u.rx_bytes + ' / ' + u.tx_bytes + ' bytes')
+      + row('overruns',
+            '<span class="' + (u.overruns > 0 ? 'bad' : 'ok') + '">' + u.overruns + '</span>')
+      + row('tx stall', u.tx_stall_us + ' us')
+      + row('last nonce', s.last_nonce)
+      + row('last hash_top64', s.last_hash_top64)
+      + row('last error',
+            s.last_error ? '<span class="bad">' + s.last_error + '</span>' : '—');
+    document.getElementById('raw').textContent = JSON.stringify(s, null, 2);
+  } catch (e) {
+    document.getElementById('raw').textContent =
+      'status.json unreadable: ' + e + '\n\nIf the miner never started, check boot.log.';
+  }
+}
+tick();
+setInterval(tick, 5000);
+</script>
+</body>
+</html>

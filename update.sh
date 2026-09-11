@@ -55,12 +55,19 @@ for svc in tari_os tari_aft astrix ironfish wala hoohash cryptix verus pyrin \
 done
 sudo systemctl disable tari_os.service 2>/dev/null
 
-# blake2b itself has to stop too, and it was missing from the list above. The
-# running miner IS /opt/blake2b/blake2b, so copying over it fails with
+# Our OWN modules have to stop too, and blake2b was missing from the list above
+# once. The running miner IS /opt/<name>/<name>, so copying over it fails with
 # "Text file busy" -- and cp reports that on stderr and keeps going, so the
 # deploy still logs "update done" while silently leaving the OLD binary in
 # place. Everything else updates, which makes it look like a successful deploy.
-sudo systemctl stop blake2b.service 2>/dev/null
+#
+# Derived from the clone rather than hardcoded, so adding a third module cannot
+# forget this step: MODULES is every modules/<name> except the unit-file dir.
+MODULES=$(ls "$1"/modules 2>/dev/null | grep -v '^services$')
+echo "modules in this clone: $MODULES"
+for m in $MODULES; do
+    sudo systemctl stop "$m".service 2>/dev/null
+done
 
 # The debug servers hold the JTAG cores the loader needs to drive.
 sudo systemctl stop xvc_server_1 2>/dev/null
@@ -74,19 +81,25 @@ sudo systemctl stop xvc_server_3 2>/dev/null
 # enough, but unlink succeeds even against a busy inode -- any process still
 # holding it keeps its own open file and the new one lands regardless. Without
 # this the failure is silent and the deploy reports success.
-sudo rm -f /opt/blake2b/blake2b 2>/dev/null
+for m in $MODULES; do
+    sudo rm -f /opt/"$m"/"$m" 2>/dev/null
+done
 sudo cp -R "$1"/modules/* /opt/
 
-# cp's failures go to stderr and do not stop the script, so prove the binary
+# cp's failures go to stderr and do not stop the script, so prove each binary
 # actually changed rather than trusting that the copy happened.
-if ! cmp -s "$1"/modules/blake2b/blake2b /opt/blake2b/blake2b; then
-    echo "FATAL: /opt/blake2b/blake2b does not match the clone -- install failed"
-    ls -l "$1"/modules/blake2b/blake2b /opt/blake2b/blake2b
-fi
+for m in $MODULES; do
+    if ! cmp -s "$1"/modules/"$m"/"$m" /opt/"$m"/"$m"; then
+        echo "FATAL: /opt/$m/$m does not match the clone -- install failed"
+        ls -l "$1"/modules/"$m"/"$m" /opt/"$m"/"$m"
+    fi
+done
 sudo cp -r "$1"/modules/services/* /etc/systemd/system/
-sudo chmod 777 /opt/blake2b/* 2>/dev/null
-sudo chmod +x /opt/blake2b/blake2b /opt/blake2b/loadallblake2b \
-              /opt/blake2b/run.sh /opt/blake2b/startblake2b.sh 2>/dev/null
+for m in $MODULES; do
+    sudo chmod 777 /opt/"$m"/* 2>/dev/null
+    sudo chmod +x /opt/"$m"/"$m" /opt/"$m"/loadall"$m" \
+                  /opt/"$m"/run.sh /opt/"$m"/start"$m".sh 2>/dev/null
+done
 
 # web/html/* lands on /var/www/html/. This is what puts the merged
 # libraries.json in place -- without it the UI rejects the algo outright with
@@ -104,7 +117,9 @@ sudo rm -rf /opt/services 2>/dev/null
 # derives the filename from the IDCODE and this one reads as plain VU35P.
 # Removed by name rather than by wildcard so a bitstream for some other board
 # could not be swept up by accident.
-sudo rm -f /opt/blake2b/bits/e335c_v3.bit /opt/blake2b/bits/e335c_v3.bit.md5sum 2>/dev/null
+for m in $MODULES; do
+    sudo rm -f /opt/"$m"/bits/e335c_v3.bit /opt/"$m"/bits/e335c_v3.bit.md5sum 2>/dev/null
+done
 
 if [ ${#2} -ge 5 ]; then
     sudo mkdir -p /opt/algorithm
@@ -123,16 +138,21 @@ sudo systemctl restart webserver.service
 sleep 3
 
 # --- prove what landed, since this log is the only way to see it ---
-echo "=== installed ==="
-ls -l /opt/blake2b/ /opt/blake2b/bits/
-# e335_v3.bit, not e335c_v3.bit: this board's IDCODE reads as a plain VU35P, so
-# that is the name the loader derives and the only bitstream we ship. The CIV
-# name is deleted above, so checking it here proved nothing at all.
-md5sum /opt/blake2b/bits/e335_v3.bit
-cat /opt/blake2b/bits/e335_v3.bit.md5sum
-file /opt/blake2b/blake2b 2>/dev/null
-grep -c blake2b /var/www/html/libraries.json
-systemctl cat blake2b.service 2>&1 | head -20
+# The BuildID in `file` output is the single most valuable line here: it is what
+# distinguishes "the new binary installed" from "the copy failed and the old one
+# is still running", which otherwise look identical in this log.
+for m in $MODULES; do
+    echo "=== installed: $m ==="
+    ls -l /opt/"$m"/ /opt/"$m"/bits/
+    # e335_v3.bit, not e335c_v3.bit: this board's IDCODE reads as a plain VU35P,
+    # so that is the name the loader derives and the only bitstream we ship. The
+    # CIV name is deleted above, so checking it here proved nothing at all.
+    md5sum /opt/"$m"/bits/e335_v3.bit
+    cat /opt/"$m"/bits/e335_v3.bit.md5sum
+    file /opt/"$m"/"$m" 2>/dev/null
+    grep -c "$m" /var/www/html/libraries.json
+    systemctl cat "$m".service 2>&1 | head -12
+done
 systemctl is-enabled tari_os.service 2>&1
 
 echo "=== blake2b update done $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="

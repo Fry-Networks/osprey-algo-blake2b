@@ -1,0 +1,16 @@
+[Unit]
+Description=Osprey Siacoin BLAKE2b Miner
+After=network-online.target apache2.service
+
+[Service]
+Type=simple
+ExecStart=/opt/siacoin/startsiacoin.sh
+# Restart=always, not on-failure: the vendor-generated startsiacoin.sh exits 0
+# without starting anything when /proc/uptime is under 60s (it takes an
+# `else sleep 40; fi` branch), so on-failure would leave the miner dead after a
+# reboot. Always-restart retries until the uptime gate opens.
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target
