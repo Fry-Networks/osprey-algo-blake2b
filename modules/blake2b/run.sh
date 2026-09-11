@@ -204,6 +204,60 @@ case "$POOL" in
     synthetic:*) SHIFT=${POOL#synthetic:}; POOL= ;;
     synthetic|none|-|'')                   POOL= ;;
 esac
+
+# Which work source? The device has exactly ONE pool field, and until now it was
+# always handed to the getblocktemplate client -- which is why pointing it at a
+# real pool produced "rpc connect failed" while the box looked healthy.
+#
+#   stratum+tcp://host:port  -> pool mining, explicitly
+#   a NON-numeric host       -> pool mining (a Knots RPC endpoint has to be a
+#                               numeric IPv4 anyway; the miner uses inet_pton,
+#                               not getaddrinfo, so a hostname here could only
+#                               ever have been a pool)
+#   a numeric host:port      -> getblocktemplate, exactly as before
+USE_STRATUM=
+case "$POOL" in
+    stratum+tcp://*) POOL=${POOL#stratum+tcp://}; USE_STRATUM=1 ;;
+    stratum://*)     POOL=${POOL#stratum://};     USE_STRATUM=1 ;;
+esac
+if [ -z "$USE_STRATUM" ] && [ -n "$POOL" ]; then
+    _host=${POOL%%:*}
+    case "$_host" in
+        *[!0-9.]*) USE_STRATUM=1 ;;
+    esac
+fi
+
+if [ -n "$USE_STRATUM" ]; then
+    # Pool mining. The vendor form gives us pool / wallet / worker; on a pool the
+    # "wallet" field is the worker name (for example rig42.7788), and an optional
+    # ":password" suffix follows the same convention the GBT path already uses
+    # for rpcuser:rpcpassword.
+    #
+    # set +x BEFORE touching WALLET, for the same reason as the GBT branch: xtrace
+    # prints assignments with the value already expanded, and everything traced
+    # here lands in boot.log, which is served over unauthenticated HTTP.
+    set +x
+
+    POOL_WORKER=${WALLET%%:*}
+    case "$WALLET" in
+        *:*) POOL_PASS=${WALLET#*:} ;;
+        *)   POOL_PASS=x ;;
+    esac
+
+    echo "stratum mode: pool=$POOL worker=$POOL_WORKER"
+
+    export OSPREY_POOL_PASS="$POOL_PASS"
+    unset POOL_PASS WALLET
+    exec /opt/blake2b/blake2b \
+        --uart /dev/uio8 \
+        --stratum "$POOL" \
+        --worker "$POOL_WORKER" \
+        --pool-pass-env OSPREY_POOL_PASS \
+        --submit \
+        --status "$WEB/status.json" \
+        --log "$WEB/miner.log"
+fi
+
 if [ -n "$POOL" ]; then
     # Real getblocktemplate mining.
     #   pool   = host:port of the Knots RPC (must be a NUMERIC IPv4 -- the miner
